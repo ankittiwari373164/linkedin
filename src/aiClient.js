@@ -25,9 +25,11 @@ Write:
 2. Exactly ${hashtagCount} relevant hashtags
 
 CRITICAL FORMAT RULES:
-- Respond with ONLY a single JSON object, nothing before or after it - no markdown code fences, no commentary.
+- Respond with ONLY a single JSON object, nothing before or after it - no markdown code fences, no commentary, no explanation of what you're doing.
+- Keep the caption to 2-4 short sentences maximum - brevity matters more than completeness.
 - The JSON must be valid: the caption value must be on a single line with no literal line breaks (use spaces instead of newlines between sentences).
 - Do not escape or include any characters that would break JSON parsing.
+- Your entire response must start with { and end with } - nothing else.
 
 Format exactly like this:
 {"caption": "Your caption text here as one continuous line.", "hashtags": ["#tag1", "#tag2"]}`;
@@ -88,7 +90,7 @@ async function generateWithGroq(prompt) {
     model: process.env.GROQ_MODEL || 'openai/gpt-oss-20b',
     messages: [{ role: 'user', content: prompt }],
     temperature: 0.7,
-    max_tokens: 400,
+    max_tokens: 800,
   });
   return completion.choices[0].message.content.trim();
 }
@@ -119,8 +121,8 @@ async function generateCaption(client, fileName) {
       const raw = await generateWithGroq(prompt);
       const parsed = parseResponse(raw);
       if (parsed) return { ...parsed, provider: 'groq' };
-      errors.push('Groq returned unparseable JSON');
-      console.warn('[aiClient] Groq response failed to parse, falling back to Gemini. Raw:', raw.slice(0, 200));
+      errors.push(`Groq returned unparseable JSON. Raw (first 300 chars): ${raw.slice(0, 300)}`);
+      console.warn('[aiClient] Groq response failed to parse, falling back to Gemini. Raw:', raw);
     } catch (err) {
       errors.push(`Groq error: ${err.message}`);
       console.warn(`[aiClient] Groq request failed (${err.message}), falling back to Gemini`);
