@@ -1,0 +1,246 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>Post Queue — LinkedIn Automation</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg:#12151b; --panel:#1a1f28; --border:#262c38;
+    --text:#e6e8eb; --dim:#8b93a1;
+    --amber:#e8a33d; --amber-dim:#6b5330;
+    --ok:#4caf78; --err:#d96c6c; --pending:#8b93a1;
+  }
+  * { box-sizing: border-box; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; line-height:1.5; }
+  .mono { font-family:'JetBrains Mono',monospace; }
+  header { padding:28px 40px 20px; border-bottom:1px solid var(--border); }
+  header h1 { font-size:22px; font-weight:700; margin:0 0 4px; }
+  header p { margin:0; color:var(--dim); font-size:14px; }
+  main { max-width:1040px; margin:0 auto; padding:32px 40px 80px; display:grid; gap:28px; }
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; }
+  .panel h2 { font-size:15px; font-weight:600; margin:0 0 18px; display:flex; justify-content:space-between; align-items:center; }
+  .btn-row { display:flex; gap:8px; }
+  .amber-btn { background:var(--amber); color:#1a1305; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
+  .amber-btn:hover { filter:brightness(1.08); }
+  .amber-btn:disabled { opacity:.5; cursor:default; }
+  .icon-btn { background:#0e1116; border:1px solid var(--border); color:var(--dim); padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
+  .icon-btn:hover { color:var(--text); border-color:var(--amber-dim); }
+  .icon-btn.danger:hover { color:var(--err); border-color:var(--err); }
+
+  form.add-client { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
+  form.add-client .full { grid-column:1/-1; }
+  label { display:block; font-size:12px; color:var(--dim); margin-bottom:5px; }
+  input, textarea { width:100%; background:#0e1116; border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:6px; font-size:13px; font-family:inherit; }
+  textarea { resize:vertical; min-height:56px; }
+  input:focus, textarea:focus { outline:none; border-color:var(--amber-dim); }
+  .add-btn { grid-column:1/-1; background:transparent; border:1px dashed var(--border); color:var(--dim); padding:10px; border-radius:6px; cursor:pointer; font-size:13px; margin-top:4px; }
+  .add-btn:hover { border-color:var(--amber-dim); color:var(--text); }
+
+  .client-row { display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px; padding:14px 0; border-top:1px solid var(--border); }
+  .client-row:first-of-type { border-top:none; }
+  .client-name { font-weight:600; font-size:14px; }
+  .client-meta { color:var(--dim); font-size:12px; margin-top:2px; }
+  .client-desc { color:var(--dim); font-size:12px; margin-top:6px; max-width:520px; }
+
+  .empty { color:var(--dim); font-size:13px; padding:12px 0; }
+  table { width:100%; border-collapse:collapse; font-size:13px; }
+  th { text-align:left; color:var(--dim); font-weight:500; font-size:12px; padding:0 0 8px; }
+  td { padding:8px 0; border-top:1px solid var(--border); vertical-align:top; }
+  .status-dot { display:inline-block; width:6px; height:6px; border-radius:50%; margin-right:6px; }
+  .status-posted .status-dot { background:var(--ok); }
+  .status-pending .status-dot { background:var(--pending); }
+  .status-failed .status-dot { background:var(--err); }
+  .status-failed { color:var(--err); }
+
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--panel); border:1px solid var(--border); padding:12px 18px; border-radius:8px; font-size:13px; max-width:320px; display:none; }
+  .toast.show { display:block; }
+  .toast.err { border-color:var(--err); color:var(--err); }
+  .toast.ok { border-color:var(--ok); color:var(--ok); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1>Post Queue</h1>
+  <p>Drive folders → AI captions → LinkedIn pages, one week at a time</p>
+</header>
+
+<main>
+  <section class="panel">
+    <h2>
+      Clients
+      <div class="btn-row">
+        <button class="icon-btn" id="connect-linkedin">Connect LinkedIn</button>
+        <button class="amber-btn" id="run-daily">Run daily job now</button>
+      </div>
+    </h2>
+    <div id="clients-list"></div>
+
+    <form class="add-client" id="add-client-form">
+      <div>
+        <label>Client / page name</label>
+        <input name="name" placeholder="Enrollence" required />
+      </div>
+      <div>
+        <label>LinkedIn page ID or admin URL</label>
+        <input name="pageIdOrUrl" placeholder="https://www.linkedin.com/company/102727073/admin/dashboard/" required />
+      </div>
+      <div>
+        <label>Drive folder ID</label>
+        <input name="driveFolderId" placeholder="1AbCxyz..." required />
+      </div>
+      <div>
+        <label>Hashtags per post</label>
+        <input name="hashtagCount" type="number" min="0" max="15" value="5" />
+      </div>
+      <div class="full">
+        <label>Business description</label>
+        <textarea name="businessDescription" placeholder="What this business does, who it serves, what makes it different..."></textarea>
+      </div>
+      <div>
+        <label>Website</label>
+        <input name="website" placeholder="https://example.com" />
+      </div>
+      <div>
+        <label>Phone</label>
+        <input name="phone" placeholder="+91 98765 43210" />
+      </div>
+      <div>
+        <label>Email</label>
+        <input name="email" placeholder="hello@example.com" />
+      </div>
+      <div>
+        <label>Caption style (optional)</label>
+        <input name="captionStyle" placeholder="professional and engaging, 2-3 short sentences" />
+      </div>
+      <button type="submit" class="add-btn full">+ Add client</button>
+    </form>
+  </section>
+
+  <section class="panel">
+    <h2>This week's schedule &amp; activity</h2>
+    <div id="schedule-table"></div>
+  </section>
+</main>
+
+<div class="toast" id="toast"></div>
+
+<script>
+const $ = (sel) => document.querySelector(sel);
+const toast = $('#toast');
+
+function showToast(msg, type = 'ok') {
+  toast.textContent = msg;
+  toast.className = 'toast show ' + type;
+  setTimeout(() => toast.classList.remove('show'), 3500);
+}
+
+async function api(path, opts = {}) {
+  const res = await fetch(path, { headers: { 'Content-Type': 'application/json' }, ...opts });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || 'Request failed');
+  return data;
+}
+
+function extractOrgId(urn) {
+  const m = String(urn).match(/organization:(\d+)/);
+  return m ? m[1] : urn;
+}
+
+async function loadClients() {
+  const clients = await api('/api/clients');
+  const container = $('#clients-list');
+
+  if (clients.length === 0) {
+    container.innerHTML = '<div class="empty">No clients yet — add one below.</div>';
+    return;
+  }
+
+  container.innerHTML = clients.map((c) => `
+    <div class="client-row" data-id="${c.id}">
+      <div>
+        <div class="client-name">${c.name}</div>
+        <div class="client-meta mono">org ${extractOrgId(c.organization_urn)} · folder ${c.drive_folder_id.slice(0, 12)}… · ${c.hashtag_count} tags</div>
+        ${c.business_description ? `<div class="client-desc">${c.business_description}</div>` : ''}
+      </div>
+      <div class="btn-row">
+        <button class="icon-btn danger delete-client">Remove</button>
+      </div>
+    </div>
+  `).join('');
+
+  container.querySelectorAll('.delete-client').forEach((btn) => {
+    btn.addEventListener('click', async (e) => {
+      const id = e.target.closest('.client-row').dataset.id;
+      if (!confirm('Remove this client and its schedule history?')) return;
+      try {
+        await api(`/api/clients/${id}`, { method: 'DELETE' });
+        loadClients();
+      } catch (err) { showToast(err.message, 'err'); }
+    });
+  });
+}
+
+async function loadSchedule() {
+  const rows = await api('/api/schedule');
+  const el = $('#schedule-table');
+  if (rows.length === 0) {
+    el.innerHTML = '<div class="empty">Nothing scheduled yet. Add a client, then run the daily job.</div>';
+    return;
+  }
+  el.innerHTML = `
+    <table>
+      <thead><tr><th>Date</th><th>Client</th><th>File</th><th>Status</th></tr></thead>
+      <tbody>
+        ${rows.map((r) => `
+          <tr>
+            <td class="mono">${r.scheduled_date}</td>
+            <td>${r.clients?.name || '—'}</td>
+            <td class="mono">${r.file_name}</td>
+            <td class="status-${r.status}"><span class="status-dot"></span>${r.status}${r.status === 'failed' && r.error ? ` — ${r.error.slice(0, 60)}` : ''}</td>
+          </tr>
+        `).join('')}
+      </tbody>
+    </table>
+  `;
+}
+
+$('#add-client-form').addEventListener('submit', async (e) => {
+  e.preventDefault();
+  const body = Object.fromEntries(new FormData(e.target).entries());
+  try {
+    await api('/api/clients', { method: 'POST', body: JSON.stringify(body) });
+    e.target.reset();
+    e.target.querySelector('input[name=hashtagCount]').value = 5;
+    loadClients();
+    showToast(`Added "${body.name}"`, 'ok');
+  } catch (err) { showToast(err.message, 'err'); }
+});
+
+$('#run-daily').addEventListener('click', async (e) => {
+  e.target.textContent = 'Running…';
+  e.target.disabled = true;
+  try {
+    await api('/api/run-daily', { method: 'POST' });
+    showToast('Daily job complete', 'ok');
+    loadSchedule();
+  } catch (err) { showToast(err.message, 'err'); }
+  e.target.textContent = 'Run daily job now';
+  e.target.disabled = false;
+});
+
+$('#connect-linkedin').addEventListener('click', async () => {
+  try {
+    const { url } = await api('/api/oauth-url');
+    window.open(url, '_blank');
+  } catch (err) { showToast(err.message, 'err'); }
+});
+
+loadClients();
+loadSchedule();
+</script>
+</body>
+</html>
