@@ -14,36 +14,44 @@
     --ok:#4caf78; --err:#d96c6c; --pending:#8b93a1;
   }
   * { box-sizing: border-box; }
-  body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; line-height:1.5; }
+  body { margin:0; background:var(--bg); color:var(--text); font-family:'Inter',sans-serif; line-height:1.5; height:100vh; overflow:hidden; }
   .mono { font-family:'JetBrains Mono',monospace; }
-  header { padding:28px 40px 20px; border-bottom:1px solid var(--border); }
-  header h1 { font-size:22px; font-weight:700; margin:0 0 4px; }
-  header p { margin:0; color:var(--dim); font-size:14px; }
-  main { max-width:1040px; margin:0 auto; padding:32px 40px 80px; display:grid; gap:28px; }
-  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; }
+
+  .app { display:grid; grid-template-columns:280px 1fr; height:100vh; }
+
+  .sidebar { background:var(--panel); border-right:1px solid var(--border); display:flex; flex-direction:column; overflow-y:auto; }
+  .sidebar-header { padding:20px; border-bottom:1px solid var(--border); }
+  .sidebar-header h1 { font-size:16px; font-weight:700; margin:0 0 3px; }
+  .sidebar-header p { margin:0; color:var(--dim); font-size:12px; }
+  .client-item { padding:14px 20px; border-bottom:1px solid var(--border); cursor:pointer; }
+  .client-item:hover { background:#1f2530; }
+  .client-item.active { background:#22293a; border-left:3px solid var(--amber); padding-left:17px; }
+  .client-item-name { font-weight:600; font-size:13px; }
+  .client-item-meta { color:var(--dim); font-size:11px; margin-top:3px; }
+  .sidebar-footer { padding:16px 20px; margin-top:auto; border-top:1px solid var(--border); display:flex; flex-direction:column; gap:8px; }
+  .empty-sidebar { padding:20px; color:var(--dim); font-size:13px; }
+
+  .main { overflow-y:auto; padding:32px 40px 80px; }
+  .topbar { display:flex; justify-content:flex-end; gap:8px; margin-bottom:24px; }
+
+  .panel { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; margin-bottom:24px; }
   .panel h2 { font-size:15px; font-weight:600; margin:0 0 18px; display:flex; justify-content:space-between; align-items:center; }
-  .btn-row { display:flex; gap:8px; }
+
   .amber-btn { background:var(--amber); color:#1a1305; border:none; padding:8px 16px; border-radius:6px; font-weight:600; font-size:13px; cursor:pointer; }
   .amber-btn:hover { filter:brightness(1.08); }
   .amber-btn:disabled { opacity:.5; cursor:default; }
   .icon-btn { background:#0e1116; border:1px solid var(--border); color:var(--dim); padding:6px 12px; border-radius:6px; font-size:12px; cursor:pointer; }
   .icon-btn:hover { color:var(--text); border-color:var(--amber-dim); }
   .icon-btn.danger:hover { color:var(--err); border-color:var(--err); }
+  .icon-btn.small { padding:4px 10px; font-size:11px; }
 
-  form.add-client { display:grid; grid-template-columns:1fr 1fr; gap:12px; margin-bottom:8px; }
-  form.add-client .full { grid-column:1/-1; }
+  form.grid-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
+  form.grid-form .full { grid-column:1/-1; }
   label { display:block; font-size:12px; color:var(--dim); margin-bottom:5px; }
   input, textarea { width:100%; background:#0e1116; border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:6px; font-size:13px; font-family:inherit; }
   textarea { resize:vertical; min-height:56px; }
   input:focus, textarea:focus { outline:none; border-color:var(--amber-dim); }
-  .add-btn { grid-column:1/-1; background:transparent; border:1px dashed var(--border); color:var(--dim); padding:10px; border-radius:6px; cursor:pointer; font-size:13px; margin-top:4px; }
-  .add-btn:hover { border-color:var(--amber-dim); color:var(--text); }
-
-  .client-row { display:grid; grid-template-columns:1fr auto; align-items:start; gap:12px; padding:14px 0; border-top:1px solid var(--border); }
-  .client-row:first-of-type { border-top:none; }
-  .client-name { font-weight:600; font-size:14px; }
-  .client-meta { color:var(--dim); font-size:12px; margin-top:2px; }
-  .client-desc { color:var(--dim); font-size:12px; margin-top:6px; max-width:520px; }
+  input:disabled, textarea:disabled { opacity:.6; }
 
   .empty { color:var(--dim); font-size:13px; padding:12px 0; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -55,31 +63,48 @@
   .status-failed .status-dot { background:var(--err); }
   .status-failed { color:var(--err); }
 
-  .toast { position:fixed; bottom:24px; right:24px; background:var(--panel); border:1px solid var(--border); padding:12px 18px; border-radius:8px; font-size:13px; max-width:320px; display:none; }
+  .modal-overlay { position:fixed; inset:0; background:rgba(0,0,0,.6); display:none; align-items:center; justify-content:center; z-index:10; }
+  .modal-overlay.show { display:flex; }
+  .modal { background:var(--panel); border:1px solid var(--border); border-radius:10px; padding:24px; width:600px; max-width:90vw; max-height:85vh; overflow-y:auto; }
+  .modal h2 { margin-top:0; }
+
+  .toast { position:fixed; bottom:24px; right:24px; background:var(--panel); border:1px solid var(--border); padding:12px 18px; border-radius:8px; font-size:13px; max-width:320px; display:none; z-index:20; }
   .toast.show { display:block; }
   .toast.err { border-color:var(--err); color:var(--err); }
   .toast.ok { border-color:var(--ok); color:var(--ok); }
+
+  .welcome { color:var(--dim); font-size:14px; padding:60px 0; text-align:center; }
 </style>
 </head>
 <body>
 
-<header>
-  <h1>Post Queue</h1>
-  <p>Drive folders → AI captions → LinkedIn pages, one week at a time</p>
-</header>
+<div class="app">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <h1>Post Queue</h1>
+      <p>Drive → AI captions → LinkedIn</p>
+    </div>
+    <div id="client-list"></div>
+    <div class="sidebar-footer">
+      <button class="icon-btn" id="connect-linkedin">Connect LinkedIn</button>
+      <button class="amber-btn" id="add-client-btn">+ Add client</button>
+    </div>
+  </aside>
 
-<main>
-  <section class="panel">
-    <h2>
-      Clients
-      <div class="btn-row">
-        <button class="icon-btn" id="connect-linkedin">Connect LinkedIn</button>
-        <button class="amber-btn" id="run-daily">Run daily job now</button>
-      </div>
-    </h2>
-    <div id="clients-list"></div>
+  <main class="main">
+    <div class="topbar">
+      <button class="icon-btn" id="run-daily">Run daily job now</button>
+    </div>
+    <div id="detail-area">
+      <div class="welcome">Select a client on the left, or add a new one.</div>
+    </div>
+  </main>
+</div>
 
-    <form class="add-client" id="add-client-form">
+<div class="modal-overlay" id="add-modal">
+  <div class="modal">
+    <h2>Add client</h2>
+    <form class="grid-form" id="add-client-form">
       <div>
         <label>Client / page name</label>
         <input name="name" placeholder="Enrollence" required />
@@ -116,21 +141,22 @@
         <label>Caption style (optional)</label>
         <input name="captionStyle" placeholder="professional and engaging, 2-3 short sentences" />
       </div>
-      <button type="submit" class="add-btn full">+ Add client</button>
+      <div class="full" style="display:flex; gap:8px; justify-content:flex-end; margin-top:8px;">
+        <button type="button" class="icon-btn" id="cancel-add">Cancel</button>
+        <button type="submit" class="amber-btn">Add client</button>
+      </div>
     </form>
-  </section>
-
-  <section class="panel">
-    <h2>This week's schedule &amp; activity</h2>
-    <div id="schedule-table"></div>
-  </section>
-</main>
+  </div>
+</div>
 
 <div class="toast" id="toast"></div>
 
 <script>
 const $ = (sel) => document.querySelector(sel);
 const toast = $('#toast');
+let clients = [];
+let schedule = [];
+let selectedClientId = null;
 
 function showToast(msg, type = 'ok') {
   toast.textContent = msg;
@@ -150,63 +176,155 @@ function extractOrgId(urn) {
   return m ? m[1] : urn;
 }
 
-async function loadClients() {
-  const clients = await api('/api/clients');
-  const container = $('#clients-list');
+async function loadAll() {
+  [clients, schedule] = await Promise.all([api('/api/clients'), api('/api/schedule')]);
+  renderSidebar();
+  if (selectedClientId) renderDetail(selectedClientId);
+}
 
+function renderSidebar() {
+  const container = $('#client-list');
   if (clients.length === 0) {
-    container.innerHTML = '<div class="empty">No clients yet — add one below.</div>';
+    container.innerHTML = '<div class="empty-sidebar">No clients yet.</div>';
     return;
   }
-
   container.innerHTML = clients.map((c) => `
-    <div class="client-row" data-id="${c.id}">
-      <div>
-        <div class="client-name">${c.name}</div>
-        <div class="client-meta mono">org ${extractOrgId(c.organization_urn)} · folder ${c.drive_folder_id.slice(0, 12)}… · ${c.hashtag_count} tags</div>
-        ${c.business_description ? `<div class="client-desc">${c.business_description}</div>` : ''}
-      </div>
-      <div class="btn-row">
-        <button class="icon-btn danger delete-client">Remove</button>
-      </div>
+    <div class="client-item ${c.id === selectedClientId ? 'active' : ''}" data-id="${c.id}">
+      <div class="client-item-name">${c.name}</div>
+      <div class="client-item-meta mono">org ${extractOrgId(c.organization_urn)}</div>
     </div>
   `).join('');
-
-  container.querySelectorAll('.delete-client').forEach((btn) => {
-    btn.addEventListener('click', async (e) => {
-      const id = e.target.closest('.client-row').dataset.id;
-      if (!confirm('Remove this client and its schedule history?')) return;
-      try {
-        await api(`/api/clients/${id}`, { method: 'DELETE' });
-        loadClients();
-      } catch (err) { showToast(err.message, 'err'); }
+  container.querySelectorAll('.client-item').forEach((el) => {
+    el.addEventListener('click', () => {
+      selectedClientId = el.dataset.id;
+      renderSidebar();
+      renderDetail(selectedClientId);
     });
   });
 }
 
-async function loadSchedule() {
-  const rows = await api('/api/schedule');
-  const el = $('#schedule-table');
-  if (rows.length === 0) {
-    el.innerHTML = '<div class="empty">Nothing scheduled yet. Add a client, then run the daily job.</div>';
+function renderDetail(clientId) {
+  const client = clients.find((c) => c.id === clientId);
+  const area = $('#detail-area');
+  if (!client) {
+    area.innerHTML = '<div class="welcome">Select a client on the left, or add a new one.</div>';
     return;
   }
-  el.innerHTML = `
-    <table>
-      <thead><tr><th>Date</th><th>Client</th><th>File</th><th>Status</th></tr></thead>
-      <tbody>
-        ${rows.map((r) => `
-          <tr>
-            <td class="mono">${r.scheduled_date}</td>
-            <td>${r.clients?.name || '—'}</td>
-            <td class="mono">${r.file_name}</td>
-            <td class="status-${r.status}"><span class="status-dot"></span>${r.status}${r.status === 'failed' && r.error ? ` — ${r.error.slice(0, 60)}` : ''}</td>
-          </tr>
-        `).join('')}
-      </tbody>
-    </table>
+
+  const posts = schedule.filter((p) => p.client_id === clientId).sort((a, b) => a.scheduled_date.localeCompare(b.scheduled_date));
+  const pending = posts.filter((p) => p.status === 'pending' || p.status === 'failed');
+  const posted = posts.filter((p) => p.status === 'posted');
+
+  const postsTable = (rows, emptyMsg) => rows.length === 0
+    ? `<div class="empty">${emptyMsg}</div>`
+    : `<table>
+        <thead><tr><th>Date</th><th>File</th><th>Status</th></tr></thead>
+        <tbody>
+          ${rows.map((r) => `
+            <tr>
+              <td class="mono">${r.scheduled_date}</td>
+              <td class="mono">${r.file_name}</td>
+              <td class="status-${r.status}"><span class="status-dot"></span>${r.status}${r.status === 'failed' && r.error ? ` — ${r.error.slice(0, 70)}` : ''}</td>
+            </tr>
+          `).join('')}
+        </tbody>
+      </table>`;
+
+  area.innerHTML = `
+    <div class="panel">
+      <h2>
+        ${client.name}
+        <div style="display:flex; gap:8px;">
+          <button class="icon-btn small" id="edit-toggle">Edit</button>
+          <button class="icon-btn danger small" id="delete-client">Remove</button>
+        </div>
+      </h2>
+      <form class="grid-form" id="edit-form">
+        <div>
+          <label>LinkedIn page ID or admin URL</label>
+          <input name="pageIdOrUrl" value="${client.organization_urn}" disabled />
+        </div>
+        <div>
+          <label>Drive folder ID</label>
+          <input name="driveFolderId" value="${client.drive_folder_id}" disabled />
+        </div>
+        <div>
+          <label>Hashtags per post</label>
+          <input name="hashtagCount" type="number" min="0" max="15" value="${client.hashtag_count}" disabled />
+        </div>
+        <div>
+          <label>Caption style</label>
+          <input name="captionStyle" value="${client.caption_style || ''}" disabled />
+        </div>
+        <div class="full">
+          <label>Business description</label>
+          <textarea name="businessDescription" disabled>${client.business_description || ''}</textarea>
+        </div>
+        <div>
+          <label>Website</label>
+          <input name="website" value="${client.website || ''}" disabled />
+        </div>
+        <div>
+          <label>Phone</label>
+          <input name="phone" value="${client.phone || ''}" disabled />
+        </div>
+        <div>
+          <label>Email</label>
+          <input name="email" value="${client.email || ''}" disabled />
+        </div>
+        <div class="full" id="save-row" style="display:none; justify-content:flex-end; gap:8px;">
+          <button type="button" class="icon-btn" id="cancel-edit">Cancel</button>
+          <button type="submit" class="amber-btn">Save changes</button>
+        </div>
+      </form>
+    </div>
+
+    <div class="panel">
+      <h2>Pending (${pending.length})</h2>
+      ${postsTable(pending, 'Nothing pending — run the daily job to queue more.')}
+    </div>
+
+    <div class="panel">
+      <h2>Posted (${posted.length})</h2>
+      ${postsTable(posted, 'Nothing posted yet.')}
+    </div>
   `;
+
+  const form = $('#edit-form');
+  const inputs = form.querySelectorAll('input, textarea');
+  const saveRow = $('#save-row');
+
+  $('#edit-toggle').addEventListener('click', () => {
+    inputs.forEach((el) => { el.disabled = false; });
+    saveRow.style.display = 'flex';
+    $('#edit-toggle').style.display = 'none';
+  });
+
+  $('#cancel-edit').addEventListener('click', () => renderDetail(clientId));
+
+  form.addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const body = Object.fromEntries(new FormData(form).entries());
+    try {
+      await api(`/api/clients/${clientId}`, { method: 'PUT', body: JSON.stringify(body) });
+      showToast('Saved', 'ok');
+      await loadAll();
+    } catch (err) { showToast(err.message, 'err'); }
+  });
+
+  $('#delete-client').addEventListener('click', async () => {
+    if (!confirm(`Remove "${client.name}" and its schedule history?`)) return;
+    try {
+      await api(`/api/clients/${clientId}`, { method: 'DELETE' });
+      selectedClientId = null;
+      await loadAll();
+      $('#detail-area').innerHTML = '<div class="welcome">Select a client on the left, or add a new one.</div>';
+    } catch (err) { showToast(err.message, 'err'); }
+  });
 }
+
+$('#add-client-btn').addEventListener('click', () => $('#add-modal').classList.add('show'));
+$('#cancel-add').addEventListener('click', () => $('#add-modal').classList.remove('show'));
 
 $('#add-client-form').addEventListener('submit', async (e) => {
   e.preventDefault();
@@ -215,8 +333,9 @@ $('#add-client-form').addEventListener('submit', async (e) => {
     await api('/api/clients', { method: 'POST', body: JSON.stringify(body) });
     e.target.reset();
     e.target.querySelector('input[name=hashtagCount]').value = 5;
-    loadClients();
+    $('#add-modal').classList.remove('show');
     showToast(`Added "${body.name}"`, 'ok');
+    await loadAll();
   } catch (err) { showToast(err.message, 'err'); }
 });
 
@@ -226,7 +345,7 @@ $('#run-daily').addEventListener('click', async (e) => {
   try {
     await api('/api/run-daily', { method: 'POST' });
     showToast('Daily job complete', 'ok');
-    loadSchedule();
+    await loadAll();
   } catch (err) { showToast(err.message, 'err'); }
   e.target.textContent = 'Run daily job now';
   e.target.disabled = false;
@@ -239,8 +358,7 @@ $('#connect-linkedin').addEventListener('click', async () => {
   } catch (err) { showToast(err.message, 'err'); }
 });
 
-loadClients();
-loadSchedule();
+loadAll();
 </script>
 </body>
 </html>

@@ -24,22 +24,63 @@ Write:
 1. A caption (2-4 sentences, no hashtags in this part). Naturally weave in the business's value proposition where relevant, but don't force the phone/email/website into the caption text itself unless it flows naturally.
 2. Exactly ${hashtagCount} relevant hashtags
 
-Respond ONLY in this exact JSON format, nothing else, no markdown fences:
-{"caption": "...", "hashtags": ["#tag1", "#tag2"]}`;
+CRITICAL FORMAT RULES:
+- Respond with ONLY a single JSON object, nothing before or after it - no markdown code fences, no commentary.
+- The JSON must be valid: the caption value must be on a single line with no literal line breaks (use spaces instead of newlines between sentences).
+- Do not escape or include any characters that would break JSON parsing.
+
+Format exactly like this:
+{"caption": "Your caption text here as one continuous line.", "hashtags": ["#tag1", "#tag2"]}`;
 }
 
+/**
+ * Robustly extracts {caption, hashtags} from a model response. Tries several
+ * increasingly lenient strategies before giving up. Returns null (never a
+ * best-effort guess) if nothing usable could be parsed, so callers can treat
+ * that as a hard failure rather than risk posting malformed content.
+ */
 function parseResponse(raw) {
-  const jsonMatch = raw.match(/\{[\s\S]*\}/);
-  if (!jsonMatch) return { caption: raw.trim(), hashtags: [] };
-  try {
-    const parsed = JSON.parse(jsonMatch[0]);
-    return {
-      caption: parsed.caption || raw.trim(),
-      hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
-    };
-  } catch {
-    return { caption: raw.trim(), hashtags: [] };
-  }
+  let text = raw.trim();
+
+  // Strip markdown code fences if present, e.g. ```json ... ```
+  text = text.replace(/^```(?:json)?/i, '').replace(/```$/, '').trim();
+
+  // Isolate the outermost { ... } block.
+  const match = text.match(/\{[\s\S]*\}/);
+  if (match) text = match[0];
+
+  const tryParse = (candidate) => {
+    try {
+      const parsed = JSON.parse(candidate);
+      if (parsed && typeof parsed.caption === 'string') {
+        return {
+          caption: parsed.caption.trim(),
+          hashtags: Array.isArray(parsed.hashtags) ? parsed.hashtags : [],
+        };
+      }
+    } catch {
+      // fall through
+    }
+    return null;
+  };
+
+  // Attempt 1: parse as-is.
+  let result = tryParse(text);
+  if (result) return result;
+
+  // Attempt 2: the most common failure mode is literal newlines/tabs inside
+  // string values, which are illegal in strict JSON. Collapse them.
+  const sanitized = text.replace(/[\r\n\t]+/g, ' ');
+  result = tryParse(sanitized);
+  if (result) return result;
+
+  // Attempt 3: sometimes models leave a trailing comma before a closing
+  // brace/bracket, which also breaks strict JSON.
+  const noTrailingCommas = sanitized.replace(/,(\s*[}\]])/g, '$1');
+  result = tryParse(noTrailingCommas);
+  if (result) return result;
+
+  return null; // caller must treat this as a failure, not fall back to raw text
 }
 
 async function generateWithGroq(prompt) {
@@ -65,32 +106,39 @@ async function generateWithGemini(prompt) {
 
 /**
  * Generates a caption + hashtags for a client's post, trying Groq first
- * and falling back to Gemini if Groq errors for any reason.
+ * and falling back to Gemini if Groq errors OR returns unparseable output.
+ * Throws if neither provider yields valid, parseable JSON - callers must
+ * NOT post anything in that case.
  */
 async function generateCaption(client, fileName) {
   const prompt = buildPrompt(client, fileName);
-  let lastError;
+  const errors = [];
 
   if (groq) {
     try {
       const raw = await generateWithGroq(prompt);
-      return { ...parseResponse(raw), provider: 'groq' };
+      const parsed = parseResponse(raw);
+      if (parsed) return { ...parsed, provider: 'groq' };
+      errors.push('Groq returned unparseable JSON');
+      console.warn('[aiClient] Groq response failed to parse, falling back to Gemini. Raw:', raw.slice(0, 200));
     } catch (err) {
-      lastError = err;
-      console.warn(`[aiClient] Groq failed (${err.message}), falling back to Gemini`);
+      errors.push(`Groq error: ${err.message}`);
+      console.warn(`[aiClient] Groq request failed (${err.message}), falling back to Gemini`);
     }
   }
 
   if (process.env.GEMINI_API_KEY) {
     try {
       const raw = await generateWithGemini(prompt);
-      return { ...parseResponse(raw), provider: 'gemini' };
+      const parsed = parseResponse(raw);
+      if (parsed) return { ...parsed, provider: 'gemini' };
+      errors.push('Gemini returned unparseable JSON');
     } catch (err) {
-      lastError = err;
+      errors.push(`Gemini error: ${err.message}`);
     }
   }
 
-  throw new Error(`Both Groq and Gemini failed to generate a caption: ${lastError?.message || 'no providers configured'}`);
+  throw new Error(`Caption generation failed - refusing to post malformed content. Details: ${errors.join(' | ') || 'no providers configured'}`);
 }
 
-module.exports = { generateCaption };
+module.exports = { generateCaption, parseResponse };
