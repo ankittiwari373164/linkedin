@@ -18,9 +18,13 @@ function getDriveClient() {
   return google.drive({ version: 'v3', auth });
 }
 
-async function listMediaFiles(drive, folderId) {
+async function listMediaFiles(drive, folderId, contentType = 'both') {
+  let mimeFilter = "(mimeType contains 'image/' or mimeType contains 'video/')";
+  if (contentType === 'image') mimeFilter = "mimeType contains 'image/'";
+  if (contentType === 'video') mimeFilter = "mimeType contains 'video/'";
+
   const res = await drive.files.list({
-    q: `'${folderId}' in parents and trashed = false and (mimeType contains 'image/' or mimeType contains 'video/')`,
+    q: `'${folderId}' in parents and trashed = false and ${mimeFilter}`,
     fields: 'files(id, name, mimeType, createdTime)',
     orderBy: 'createdTime',
     pageSize: 100,

@@ -48,10 +48,10 @@
   form.grid-form { display:grid; grid-template-columns:1fr 1fr; gap:12px; }
   form.grid-form .full { grid-column:1/-1; }
   label { display:block; font-size:12px; color:var(--dim); margin-bottom:5px; }
-  input, textarea { width:100%; background:#0e1116; border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:6px; font-size:13px; font-family:inherit; }
+  input, textarea, select { width:100%; background:#0e1116; border:1px solid var(--border); color:var(--text); padding:9px 10px; border-radius:6px; font-size:13px; font-family:inherit; }
   textarea { resize:vertical; min-height:56px; }
-  input:focus, textarea:focus { outline:none; border-color:var(--amber-dim); }
-  input:disabled, textarea:disabled { opacity:.6; }
+  input:focus, textarea:focus, select:focus { outline:none; border-color:var(--amber-dim); }
+  input:disabled, textarea:disabled, select:disabled { opacity:.6; }
 
   .empty { color:var(--dim); font-size:13px; padding:12px 0; }
   table { width:100%; border-collapse:collapse; font-size:13px; }
@@ -120,6 +120,22 @@
       <div>
         <label>Hashtags per post</label>
         <input name="hashtagCount" type="number" min="0" max="15" value="5" />
+      </div>
+      <div>
+        <label>Post type</label>
+        <select name="contentType">
+          <option value="both">Photos + Videos</option>
+          <option value="image">Photos only</option>
+          <option value="video">Videos only</option>
+        </select>
+      </div>
+      <div>
+        <label>Posting frequency</label>
+        <select name="frequencyDays">
+          <option value="1">Daily</option>
+          <option value="3">Every 3 days</option>
+          <option value="6">Every 6 days</option>
+        </select>
       </div>
       <div class="full">
         <label>Business description</label>
@@ -218,13 +234,14 @@ function renderDetail(clientId) {
   const postsTable = (rows, emptyMsg) => rows.length === 0
     ? `<div class="empty">${emptyMsg}</div>`
     : `<table>
-        <thead><tr><th>Date</th><th>File</th><th>Status</th></tr></thead>
+        <thead><tr><th>Date</th><th>File</th><th>Status</th><th></th></tr></thead>
         <tbody>
           ${rows.map((r) => `
-            <tr>
+            <tr data-row-id="${r.id}">
               <td class="mono">${r.scheduled_date}</td>
               <td class="mono">${r.file_name}</td>
               <td class="status-${r.status}"><span class="status-dot"></span>${r.status}${r.status === 'failed' && r.error ? ` — ${r.error.slice(0, 70)}` : ''}</td>
+              <td>${r.status === 'failed' ? `<button class="icon-btn small retry-btn" data-id="${r.id}">Retry</button>` : ''}</td>
             </tr>
           `).join('')}
         </tbody>
@@ -251,6 +268,22 @@ function renderDetail(clientId) {
         <div>
           <label>Hashtags per post</label>
           <input name="hashtagCount" type="number" min="0" max="15" value="${client.hashtag_count}" disabled />
+        </div>
+        <div>
+          <label>Post type</label>
+          <select name="contentType" disabled>
+            <option value="both" ${client.content_type === 'both' ? 'selected' : ''}>Photos + Videos</option>
+            <option value="image" ${client.content_type === 'image' ? 'selected' : ''}>Photos only</option>
+            <option value="video" ${client.content_type === 'video' ? 'selected' : ''}>Videos only</option>
+          </select>
+        </div>
+        <div>
+          <label>Posting frequency</label>
+          <select name="frequencyDays" disabled>
+            <option value="1" ${client.frequency_days === 1 ? 'selected' : ''}>Daily</option>
+            <option value="3" ${client.frequency_days === 3 ? 'selected' : ''}>Every 3 days</option>
+            <option value="6" ${client.frequency_days === 6 ? 'selected' : ''}>Every 6 days</option>
+          </select>
         </div>
         <div>
           <label>Caption style</label>
@@ -291,7 +324,7 @@ function renderDetail(clientId) {
   `;
 
   const form = $('#edit-form');
-  const inputs = form.querySelectorAll('input, textarea');
+  const inputs = form.querySelectorAll('input, textarea, select');
   const saveRow = $('#save-row');
 
   $('#edit-toggle').addEventListener('click', () => {
@@ -320,6 +353,23 @@ function renderDetail(clientId) {
       await loadAll();
       $('#detail-area').innerHTML = '<div class="welcome">Select a client on the left, or add a new one.</div>';
     } catch (err) { showToast(err.message, 'err'); }
+  });
+
+  area.querySelectorAll('.retry-btn').forEach((btn) => {
+    btn.addEventListener('click', async () => {
+      const id = btn.dataset.id;
+      btn.textContent = 'Retrying…';
+      btn.disabled = true;
+      try {
+        await api(`/api/scheduled-posts/${id}/retry`, { method: 'POST' });
+        showToast('Retried successfully', 'ok');
+        await loadAll();
+      } catch (err) {
+        showToast(err.message, 'err');
+        btn.textContent = 'Retry';
+        btn.disabled = false;
+      }
+    });
   });
 }
 

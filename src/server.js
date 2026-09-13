@@ -6,7 +6,7 @@ const axios = require('axios');
 const fs = require('fs');
 
 const supabase = require('./supabaseClient');
-const { runDaily } = require('./dailyJob');
+const { runDaily, retryPost } = require('./dailyJob');
 
 const app = express();
 app.use(express.json());
@@ -30,7 +30,7 @@ app.get('/api/clients', async (req, res) => {
 });
 
 app.post('/api/clients', async (req, res) => {
-  const { name, pageIdOrUrl, driveFolderId, businessDescription, website, phone, email, captionStyle, hashtagCount } = req.body;
+  const { name, pageIdOrUrl, driveFolderId, businessDescription, website, phone, email, captionStyle, hashtagCount, contentType, frequencyDays } = req.body;
 
   if (!name || !pageIdOrUrl || !driveFolderId) {
     return res.status(400).json({ error: 'name, pageIdOrUrl, and driveFolderId are required.' });
@@ -48,13 +48,15 @@ app.post('/api/clients', async (req, res) => {
     email: email || null,
     caption_style: captionStyle || 'professional and engaging, 2-3 short sentences',
     hashtag_count: hashtagCount ? Number(hashtagCount) : 5,
+    content_type: contentType || 'both',
+    frequency_days: frequencyDays ? Number(frequencyDays) : 1,
   });
   if (error) return res.status(500).json({ error: error.message });
   res.status(201).json({ ok: true });
 });
 
 app.put('/api/clients/:id', async (req, res) => {
-  const { pageIdOrUrl, driveFolderId, businessDescription, website, phone, email, captionStyle, hashtagCount } = req.body;
+  const { pageIdOrUrl, driveFolderId, businessDescription, website, phone, email, captionStyle, hashtagCount, contentType, frequencyDays } = req.body;
   const update = {};
   if (pageIdOrUrl) {
     const urn = parseOrgInput(pageIdOrUrl);
@@ -68,6 +70,8 @@ app.put('/api/clients/:id', async (req, res) => {
   if (email !== undefined) update.email = email;
   if (captionStyle !== undefined) update.caption_style = captionStyle;
   if (hashtagCount) update.hashtag_count = Number(hashtagCount);
+  if (contentType) update.content_type = contentType;
+  if (frequencyDays) update.frequency_days = Number(frequencyDays);
 
   const { error } = await supabase.from('clients').update(update).eq('id', req.params.id);
   if (error) return res.status(500).json({ error: error.message });
@@ -97,6 +101,16 @@ app.get('/api/schedule', async (req, res) => {
 app.post('/api/run-daily', async (req, res) => {
   try {
     await runDaily();
+    res.json({ ok: true });
+  } catch (err) {
+    res.status(500).json({ error: err.message });
+  }
+});
+
+app.post('/api/scheduled-posts/:id/retry', async (req, res) => {
+  try {
+    const result = await retryPost(req.params.id);
+    if (!result.ok) return res.status(500).json({ error: result.error });
     res.json({ ok: true });
   } catch (err) {
     res.status(500).json({ error: err.message });
