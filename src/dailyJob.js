@@ -89,6 +89,14 @@ async function topUpSchedule(client, drive) {
  * scheduled_date. Used both by the daily "post what's due today" pass
  * and by manual retries of failed posts.
  */
+function buildContactLine(client) {
+  const parts = [];
+  if (client.website) parts.push(`🌐 ${client.website}`);
+  if (client.phone) parts.push(`📞 ${client.phone}`);
+  if (client.email) parts.push(`✉️ ${client.email}`);
+  return parts.join('  |  ');
+}
+
 async function postSingle(client, row, drive) {
   let localPath;
   try {
@@ -96,7 +104,8 @@ async function postSingle(client, row, drive) {
     localPath = await downloadFile(drive, row.drive_file_id, row.file_name);
 
     const { caption, hashtags, provider } = await generateCaption(client, row.file_name);
-    const fullText = `${caption}\n\n${hashtags.join(' ')}`.trim();
+    const contactLine = buildContactLine(client);
+    const fullText = [caption, contactLine, hashtags.join(' ')].filter(Boolean).join('\n\n').trim();
 
     const isVideo = (row.mime_type || mime.lookup(row.file_name) || '').startsWith('video/');
     const mediaUrn = isVideo

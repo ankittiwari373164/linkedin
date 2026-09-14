@@ -21,7 +21,7 @@ The post is about a media file named: "${cleanName}"
 Tone/style: ${client.caption_style || 'professional and engaging, 2-3 short sentences'}
 
 Write:
-1. A caption (2-4 sentences, no hashtags in this part). Naturally weave in the business's value proposition where relevant, but don't force the phone/email/website into the caption text itself unless it flows naturally.
+1. A caption (2-4 sentences, no hashtags in this part) that stands on its own and focuses on the message/value - do NOT include the website, phone, or email in the caption text itself; those will be appended separately afterward.
 2. Exactly ${hashtagCount} relevant hashtags
 
 CRITICAL FORMAT RULES:
