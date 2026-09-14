@@ -28,8 +28,16 @@ async function uploadImage(accessToken, organizationUrn, filePath) {
   return image;
 }
 
+/**
+ * Uploads a video using LinkedIn's full multi-part upload flow: splits the
+ * file into the byte-range chunks LinkedIn specifies, uploads each chunk,
+ * captures the ETag header LinkedIn returns per chunk, then finalizes the
+ * upload with those ETags. Required for anything beyond a tiny video -
+ * single-part upload gets rejected with 413 on real-sized files.
+ */
 async function uploadVideo(accessToken, organizationUrn, filePath) {
   const fileSize = fs.statSync(filePath).size;
+
   const initRes = await axios.post(
     `${API_BASE}/videos?action=initializeUpload`,
     {
@@ -42,12 +50,36 @@ async function uploadVideo(accessToken, organizationUrn, filePath) {
     },
     { headers: headers(accessToken) }
   );
-  const { uploadInstructions, video } = initRes.data.value;
+
+  const { uploadInstructions, video, uploadToken } = initRes.data.value;
   const fileBuffer = fs.readFileSync(filePath);
-  const part = uploadInstructions[0]; // single-part; large videos need multi-part chunking
-  await axios.put(part.uploadUrl, fileBuffer, {
-    headers: { 'Content-Type': 'application/octet-stream' },
-  });
+
+  const uploadedPartIds = [];
+  for (const part of uploadInstructions) {
+    // LinkedIn's byte ranges are inclusive on both ends.
+    const chunk = fileBuffer.subarray(part.firstByte, part.lastByte + 1);
+    const putRes = await axios.put(part.uploadUrl, chunk, {
+      headers: { 'Content-Type': 'application/octet-stream' },
+      maxBodyLength: Infinity,
+      maxContentLength: Infinity,
+    });
+    const etag = putRes.headers.etag || putRes.headers.ETag;
+    if (!etag) throw new Error(`LinkedIn did not return an ETag for video part [${part.firstByte}-${part.lastByte}]`);
+    uploadedPartIds.push(etag);
+  }
+
+  await axios.post(
+    `${API_BASE}/videos?action=finalizeUpload`,
+    {
+      finalizeUploadRequest: {
+        video,
+        uploadToken: uploadToken || '',
+        uploadedPartIds,
+      },
+    },
+    { headers: headers(accessToken) }
+  );
+
   return video;
 }
 
